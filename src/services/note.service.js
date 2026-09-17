@@ -6,29 +6,35 @@ const createNote = async (userId, data) => noteRepo.create({ ...data, userId });
 
 const getNotes = async (userId, type = 'active') => {
   const filter = { isTrashed: false };
-  if (type === 'archived') filter.isArchived = true;
-  else if (type === 'trash') {
+
+  if (type === 'archived') {
+    filter.isArchived = true;
+  } else if (type === 'trash') {
     filter.isTrashed = true;
     delete filter.isArchived;
   } else {
     filter.isArchived = false;
   }
+
   return noteRepo.findByUser(userId, filter);
 };
 
 const getNoteById = async (id, userId) => {
-  const note = await noteRepo.findByIdAndUser(id, userId);
+  // ★ Now allows owner OR collaborator
+  const note = await noteRepo.findByIdForUser(id, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
   return note;
 };
 
 const updateNote = async (id, userId, data) => {
-  const note = await noteRepo.updateById(id, userId, data);
+  // ★ Now allows owner OR collaborator
+  const note = await noteRepo.updateByIdForUser(id, userId, data);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
   return note;
 };
 
 const deleteNote = async (id, userId) => {
+  // Only owner can permanently delete
   const note = await noteRepo.deleteById(id, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
   return note;
@@ -52,6 +58,13 @@ const searchNotes = async (userId, q) => {
 };
 
 module.exports = {
-  createNote, getNotes, getNoteById, updateNote, deleteNote,
-  archiveNote, trashNote, restoreNote, searchNotes
+  createNote,
+  getNotes,
+  getNoteById,
+  updateNote,
+  deleteNote,
+  archiveNote,
+  trashNote,
+  restoreNote,
+  searchNotes
 };
