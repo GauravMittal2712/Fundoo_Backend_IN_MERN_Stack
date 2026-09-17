@@ -1,10 +1,17 @@
 const noteRepo = require('../repositories/note.repository');
 const ApiError = require('../utils/ApiError');
 const messages = require('../constants/messages');
+const { getCache, setCache, deleteCacheByPattern } = require('../utils/cache');
 
 const createNote = async (userId, data) => noteRepo.create({ ...data, userId });
 
 const getNotes = async (userId, type = 'active') => {
+  const cacheKey = `notes:${userId}:${type}`;
+
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
   const filter = { isTrashed: false };
 
   if (type === 'archived') {
@@ -16,7 +23,16 @@ const getNotes = async (userId, type = 'active') => {
     filter.isArchived = false;
   }
 
-  return noteRepo.findByUser(userId, filter);
+  const notes = await noteRepo.findByUser(userId, filter);
+
+  // 3. Store in cache
+  await setCache(cacheKey, notes);
+
+  return notes;
+};
+
+const clearNotesCache = async (userId) => {
+  await deleteCacheByPattern(`notes:${userId}:*`);
 };
 
 const getNoteById = async (id, userId) => {
@@ -28,24 +44,30 @@ const getNoteById = async (id, userId) => {
 const updateNote = async (id, userId, data) => {
   const note = await noteRepo.updateByIdForUser(id, userId, data);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  await clearNotesCache(userId);
   return note;
 };
 
 const deleteNote = async (id, userId) => {
   const note = await noteRepo.deleteById(id, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  await clearNotesCache(userId);
   return note;
 };
 
 const archiveNote = async (id, userId) => {
+  await clearNotesCache(userId);
   return updateNote(id, userId, { isArchived: true, isTrashed: false });
+  
 };
 
 const trashNote = async (id, userId) => {
+  await clearNotesCache(userId);
   return updateNote(id, userId, { isTrashed: true, isArchived: false });
 };
 
 const restoreNote = async (id, userId) => {
+  await clearNotesCache(userId);
   return updateNote(id, userId, { isTrashed: false, isArchived: false });
 };
 
