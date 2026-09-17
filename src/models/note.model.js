@@ -14,7 +14,15 @@ const noteSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Label'
       }
-    ]
+    ],
+    reminder: {
+      dateTime: { type: Date },
+      status: {
+        type: String,
+        enum: ['pending', 'done'],
+        default: 'pending'
+      }
+    }
   },
   { timestamps: true }
 );

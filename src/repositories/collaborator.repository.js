@@ -40,7 +40,6 @@ const getSharedNotes = (userId) =>
     })
     .sort({ createdAt: -1 });
 
-// ★ NEW helpers for permission checks
 const isNoteOwner = async (noteId, userId) => {
   const note = await Note.findOne({ _id: noteId, userId });
   return !!note;

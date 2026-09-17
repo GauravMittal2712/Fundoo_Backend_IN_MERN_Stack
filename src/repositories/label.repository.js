@@ -32,7 +32,6 @@ const getNotesByLabel = (labelId, userId) =>
     .populate('labels', 'name')
     .sort({ isPinned: -1, updatedAt: -1 });
 
-// ★ NEW: Remove label from all notes when label is deleted
 const removeLabelFromAllNotes = (labelId, userId) =>
   Note.updateMany(
     { userId, labels: labelId },

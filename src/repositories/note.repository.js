@@ -11,13 +11,10 @@ const findByUser = (userId, filter = {}) =>
 const findByIdAndUser = (id, userId) =>
   Note.findOne({ _id: id, userId }).populate('labels', 'name');
 
-// ★ NEW: Find note if user is owner OR collaborator
 const findByIdForUser = async (id, userId) => {
-  // First try as owner
   let note = await Note.findOne({ _id: id, userId }).populate('labels', 'name');
   if (note) return note;
 
-  // Then check if collaborator
   const collab = await Collaborator.findOne({ noteId: id, userId });
   if (!collab) return null;
 
@@ -27,9 +24,7 @@ const findByIdForUser = async (id, userId) => {
 const updateById = (id, userId, data) =>
   Note.findOneAndUpdate({ _id: id, userId }, data, { new: true }).populate('labels', 'name');
 
-// ★ NEW: Update if owner OR collaborator
 const updateByIdForUser = async (id, userId, data) => {
-  // Owner can update
   let note = await Note.findOneAndUpdate(
     { _id: id, userId },
     data,
@@ -38,7 +33,6 @@ const updateByIdForUser = async (id, userId, data) => {
 
   if (note) return note;
 
-  // Collaborator can also update
   const collab = await Collaborator.findOne({ noteId: id, userId });
   if (!collab) return null;
 
@@ -60,13 +54,36 @@ const search = (userId, query) =>
     .populate('labels', 'name')
     .sort({ updatedAt: -1 });
 
+
+const setReminder = async (id, userId, reminderData) => {
+  return updateByIdForUser(id, userId, { reminder: reminderData });
+};
+
+const removeReminder = async (id, userId) => {
+  return updateByIdForUser(id, userId, { $unset: { reminder: 1 } });
+};
+
+
+const getNotesWithReminders = (userId) =>
+  Note.find({
+    userId,
+    'reminder.dateTime': { $exists: true },
+    'reminder.status': 'pending',
+    isTrashed: false
+  })
+    .populate('labels', 'name')
+    .sort({ 'reminder.dateTime': 1 });
+
 module.exports = {
   create,
   findByUser,
   findByIdAndUser,
-  findByIdForUser,        // NEW
+  findByIdForUser,
   updateById,
-  updateByIdForUser,      // NEW
+  updateByIdForUser,
   deleteById,
-  search
+  search,
+  setReminder,
+  removeReminder,
+  getNotesWithReminders
 };

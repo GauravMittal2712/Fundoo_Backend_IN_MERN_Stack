@@ -20,21 +20,18 @@ const getNotes = async (userId, type = 'active') => {
 };
 
 const getNoteById = async (id, userId) => {
-  // ★ Now allows owner OR collaborator
   const note = await noteRepo.findByIdForUser(id, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
   return note;
 };
 
 const updateNote = async (id, userId, data) => {
-  // ★ Now allows owner OR collaborator
   const note = await noteRepo.updateByIdForUser(id, userId, data);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
   return note;
 };
 
 const deleteNote = async (id, userId) => {
-  // Only owner can permanently delete
   const note = await noteRepo.deleteById(id, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
   return note;
@@ -57,6 +54,32 @@ const searchNotes = async (userId, q) => {
   return noteRepo.search(userId, q);
 };
 
+const setReminder = async (noteId, userId, dateTime) => {
+  const note = await noteRepo.setReminder(noteId, userId, {
+    dateTime: new Date(dateTime),
+    status: 'pending'
+  });
+  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  return note;
+};
+
+
+const getReminder = async (noteId, userId) => {
+  const note = await noteRepo.findByIdForUser(noteId, userId);
+  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  return note.reminder || null;
+};
+
+const removeReminder = async (noteId, userId) => {
+  const note = await noteRepo.removeReminder(noteId, userId);
+  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  return note;
+};
+
+const getNotesWithReminders = async (userId) => {
+  return noteRepo.getNotesWithReminders(userId);
+};
+
 module.exports = {
   createNote,
   getNotes,
@@ -66,5 +89,9 @@ module.exports = {
   archiveNote,
   trashNote,
   restoreNote,
-  searchNotes
+  searchNotes,
+  setReminder,
+  getReminder,
+  removeReminder,
+  getNotesWithReminders
 };
