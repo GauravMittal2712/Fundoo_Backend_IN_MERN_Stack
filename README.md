@@ -1,6 +1,12 @@
 Fundoo Notes Backend 
 The pdf File for Fundoo backend "https://drive.google.com/file/d/1vnQWnNYDXnXshZS2dcf2-d8tGs8hH1IY/view?usp=drive_link"
 
+Related Repositories
+
+- **Frontend:** https://github.com/GauravMittal2712/Fundoo_Frontend_IN_MERN_Stack.git
+- **Backend:**  https://github.com/GauravMittal2712/Fundoo_Backend_IN_MERN_Stack.git
+
+
 A backend REST API for a Fundoo/Google Keep-style notes application
 built with Node.js, Express.js, MongoDB, JWT authentication, Joi
 validation, and RabbitMQ.
