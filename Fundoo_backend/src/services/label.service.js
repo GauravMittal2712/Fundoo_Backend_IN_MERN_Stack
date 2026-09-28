@@ -1,10 +1,16 @@
 const labelRepo = require('../repositories/label.repository');
 const ApiError = require('../utils/ApiError');
 const messages = require('../constants/messages');
-const { getCache, setCache, deleteCache } = require('../utils/cache');
+const { getCache, setCache, deleteCache, deleteCacheByPattern } = require('../utils/cache');
 
 const clearLabelsCache = async (userId) => {
   await deleteCache(`labels:${userId}`);
+};
+
+// FIX: notes are cached in Redis and include populated label names,
+// so any label change must also clear the notes cache.
+const clearNotesCache = async (userId) => {
+  await deleteCacheByPattern(`notes:${userId}:*`);
 };
 
 const createLabel = async (userId, name) => {
@@ -23,16 +29,13 @@ const createLabel = async (userId, name) => {
 const getLabels = async (userId) => {
   const cacheKey = `labels:${userId}`;
 
-
   const cached = await getCache(cacheKey);
   if (cached) {
     return cached;
   }
 
-
   const labels = await labelRepo.findByUser(userId);
 
- 
   await setCache(cacheKey, labels);
 
   return labels;
@@ -42,7 +45,8 @@ const updateLabel = async (labelId, userId, name) => {
   const label = await labelRepo.updateById(labelId, userId, { name });
   if (!label) throw new ApiError(404, messages.NOT_FOUND);
 
-  await clearLabelsCache(userId); 
+  await clearLabelsCache(userId);
+  await clearNotesCache(userId);
   return label;
 };
 
@@ -52,19 +56,22 @@ const deleteLabel = async (labelId, userId) => {
 
   await labelRepo.removeLabelFromAllNotes(labelId, userId);
 
-  await clearLabelsCache(userId); 
+  await clearLabelsCache(userId);
+  await clearNotesCache(userId);
   return label;
 };
 
 const addLabelToNote = async (labelId, noteId, userId) => {
   const note = await labelRepo.addLabelToNote(labelId, noteId, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  await clearNotesCache(userId);
   return note;
 };
 
 const removeLabelFromNote = async (labelId, noteId, userId) => {
   const note = await labelRepo.removeLabelFromNote(labelId, noteId, userId);
   if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  await clearNotesCache(userId);
   return note;
 };
 
