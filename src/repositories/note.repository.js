@@ -39,6 +39,16 @@ const updateByIdForUser = async (id, userId, data) => {
   return Note.findByIdAndUpdate(id, data, { new: true }).populate('labels', 'name');
 };
 
+const isCollaborator = async (id, userId) => !!(await Collaborator.exists({ noteId: id, userId }));
+
+// Edit of a shared note by a collaborator (not the owner). A note the owner has
+// trashed can no longer be edited. The service decides WHICH fields are allowed.
+const updateSharedContent = (id, data) =>
+  Note.findOneAndUpdate({ _id: id, isTrashed: false }, { $set: data }, { new: true }).populate(
+    'labels',
+    'name'
+  );
+
 const deleteById = (id, userId) =>
   Note.findOneAndDelete({ _id: id, userId });
 
@@ -55,12 +65,13 @@ const search = (userId, query) =>
     .sort({ updatedAt: -1 });
 
 
+// Reminders belong to the owner (the reminder email goes to them), so owner-only.
 const setReminder = async (id, userId, reminderData) => {
-  return updateByIdForUser(id, userId, { reminder: reminderData });
+  return updateById(id, userId, { reminder: reminderData });
 };
 
 const removeReminder = async (id, userId) => {
-  return updateByIdForUser(id, userId, { $unset: { reminder: 1 } });
+  return updateById(id, userId, { $unset: { reminder: 1 } });
 };
 
 
@@ -81,6 +92,8 @@ module.exports = {
   findByIdForUser,
   updateById,
   updateByIdForUser,
+  isCollaborator,
+  updateSharedContent,
   deleteById,
   search,
   setReminder,

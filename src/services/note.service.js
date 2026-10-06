@@ -45,30 +45,68 @@ const getNoteById = async (id, userId) => {
   return note;
 };
 
-const updateNote = async (id, userId, data) => {
-  const note = await noteRepo.updateByIdForUser(id, userId, data);
-  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+// What a collaborator may change on a shared note. Everything else is owner-only.
+const COLLABORATOR_EDITABLE_FIELDS = ['title', 'description', 'color'];
+
+// Not the owner: a collaborator gets a clear 403, anyone else a plain 404.
+const rejectNonOwner = async (id, userId, action) => {
+  if (await noteRepo.isCollaborator(id, userId)) {
+    throw new ApiError(403, `Only the note owner can ${action} this note`);
+  }
+  throw new ApiError(404, messages.NOT_FOUND);
+};
+
+// Owner-only change (archive, trash, restore ...)
+const updateOwnedNote = async (id, userId, data, action) => {
+  const note = await noteRepo.updateById(id, userId, data);
+  if (!note) return rejectNonOwner(id, userId, action);
   await clearNotesCache(userId);
   return note;
 };
 
+// The owner can change anything; a collaborator can only edit title, description and colour.
+const updateNote = async (id, userId, data) => {
+  const owned = await noteRepo.updateById(id, userId, data);
+  if (owned) {
+    await clearNotesCache(userId);
+    return owned;
+  }
+
+  if (!(await noteRepo.isCollaborator(id, userId))) {
+    throw new ApiError(404, messages.NOT_FOUND);
+  }
+
+  const blocked = Object.keys(data).filter((key) => !COLLABORATOR_EDITABLE_FIELDS.includes(key));
+  if (blocked.length > 0) {
+    throw new ApiError(403, 'Collaborators can only edit the title, description and colour of a shared note');
+  }
+
+  const edited = await noteRepo.updateSharedContent(id, data);
+  if (!edited) throw new ApiError(404, messages.NOT_FOUND);
+
+  // Clear the OWNER's cached lists too, or they would show the old text for up to 5 minutes.
+  await clearNotesCache(userId);
+  await clearNotesCache(edited.userId);
+  return edited;
+};
+
 const deleteNote = async (id, userId) => {
   const note = await noteRepo.deleteById(id, userId);
-  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  if (!note) return rejectNonOwner(id, userId, 'delete');
   await clearNotesCache(userId);
   return note;
 };
 
 const archiveNote = async (id, userId) => {
-  return updateNote(id, userId, { isArchived: true, isTrashed: false });
+  return updateOwnedNote(id, userId, { isArchived: true, isTrashed: false }, 'archive');
 };
 
 const trashNote = async (id, userId) => {
-  return updateNote(id, userId, { isTrashed: true, isArchived: false });
+  return updateOwnedNote(id, userId, { isTrashed: true, isArchived: false }, 'delete');
 };
 
 const restoreNote = async (id, userId) => {
-  return updateNote(id, userId, { isTrashed: false, isArchived: false });
+  return updateOwnedNote(id, userId, { isTrashed: false, isArchived: false }, 'restore');
 };
 
 const searchNotes = async (userId, q) => {
@@ -83,7 +121,7 @@ const setReminder = async (noteId, userId, dateTime) => {
     status: 'pending',
     emailSent: false
   });
-  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  if (!note) return rejectNonOwner(noteId, userId, 'set reminders on');
   await clearNotesCache(userId);
   return note;
 };
@@ -97,7 +135,7 @@ const getReminder = async (noteId, userId) => {
 // FIX 3: clear the cache after removing a reminder
 const removeReminder = async (noteId, userId) => {
   const note = await noteRepo.removeReminder(noteId, userId);
-  if (!note) throw new ApiError(404, messages.NOT_FOUND);
+  if (!note) return rejectNonOwner(noteId, userId, 'remove reminders from');
   await clearNotesCache(userId);
   return note;
 };
