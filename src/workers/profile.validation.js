@@ -6,6 +6,7 @@ const update = Joi.object({
   profileImage: Joi.string().allow('')
 }).min(1);
 
+// Either the password or a fresh Google credential must be sent
 const deleteAccount = Joi.object({
   password: Joi.string().max(200),
   credential: Joi.string()

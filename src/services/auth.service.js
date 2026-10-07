@@ -210,5 +210,6 @@ module.exports = {
   login,
   forgotPassword,
   resetPassword,
-  googleLogin
+  googleLogin,
+  verifyGoogleCredential
 };
