@@ -1,3 +1,4 @@
+const connectDB = require('./config/db');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -16,11 +17,20 @@ const app = express();
 
 app.use(helmet());
 app.use(cors({
-  origin: 'http://localhost:5173'
+  origin: process.env.CLIENT_URL || 'http://localhost:5173'
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/notes', noteRoutes);
