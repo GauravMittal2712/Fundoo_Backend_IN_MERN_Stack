@@ -1,15 +1,8 @@
 const { publish } = require('../utils/rabbitmq');
 
-const enqueue = (message) => {
-  if (process.env.DISABLE_EMAIL_QUEUE === 'true') {
-    return Promise.resolve();
-  }
-
-  return publish(
-    process.env.RABBITMQ_EMAIL_QUEUE,
-    Buffer.from(JSON.stringify(message))
-  );
-};
+// Resolves once RabbitMQ has confirmed the job is safely stored in the queue.
+const enqueue = (message) =>
+  publish(process.env.RABBITMQ_EMAIL_QUEUE, Buffer.from(JSON.stringify(message)));
 
 const sendWelcomeEmailJob = async (email, firstName) =>
   enqueue({
