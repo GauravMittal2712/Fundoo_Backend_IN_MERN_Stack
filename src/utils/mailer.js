@@ -1,7 +1,45 @@
 const nodemailer = require('nodemailer');
 const logger = require('./logger');
+const BREVO_URL = 'https://api.brevo.com/v3';
 
-const transporter = nodemailer.createTransport({
+const brevoTransporter = {
+  async sendMail({ to, subject, text, html }) {
+    const res = await fetch(`${BREVO_URL}/smtp/email`, {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json',
+        accept: 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'Fundoo App',
+          email: process.env.BREVO_SENDER_EMAIL || process.env.MAIL_USER
+        },
+        to: [{ email: to }],
+        subject,
+        textContent: text,
+        ...(html ? { htmlContent: html } : {})
+      }),
+      signal: AbortSignal.timeout(20000)
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Brevo API ${res.status}: ${body.slice(0, 300)}`);
+    }
+  },
+
+  async verify() {
+    const res = await fetch(`${BREVO_URL}/account`, {
+      headers: { 'api-key': process.env.BREVO_API_KEY, accept: 'application/json' },
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!res.ok) throw new Error(`Brevo API ${res.status}`);
+  }
+};
+
+const gmailTransporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.MAIL_USER,
@@ -13,14 +51,16 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 30000
 });
 
-// Used by the worker at start-up to log whether the Gmail login works.
+const transporter = process.env.BREVO_API_KEY ? brevoTransporter : gmailTransporter;
+
+// Used by the worker at start-up to log whether the mail login works.
 const verifyMailer = async () => {
   try {
     await transporter.verify();
-    logger.info('SMTP connection verified');
+    logger.info('Mail connection verified');
     return true;
   } catch (error) {
-    logger.error(`SMTP check failed (is MAIL_USER / MAIL_PASSWORD correct?): ${error.message}`);
+    logger.error(`Mail check failed (is the API key / MAIL_USER correct?): ${error.message}`);
     return false;
   }
 };
